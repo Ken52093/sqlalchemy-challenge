@@ -25,7 +25,8 @@ def Home():
         f"/api/v1.0/precipitation<br/>"
         f"/api/v1.0/stations<br/>"
         f"/api/v1.0/tobs<br/>"
-        f"/api/v1.0/temp/start/end"
+        f"/api/v1.0/start<br/>"
+        f"/api/v1.0/start<br/>/end<br/>"
     )
 
 @app.route("/api/v1.0/precipitation")
@@ -62,33 +63,42 @@ def tobs():
         tobsall.append(tobs_dict)
 
     return jsonify({'tobsall': [dict(row) for row in tobsall]})
-    
-@app.route("/api/v1.0/temp/<start>")
-@app.route("/api/v1.0/temp/<start>/<end>")
-def stats(start=None, end=None):
+
+@app.route("/api/v1.0/<start_date>")
+def start_date(start_date):
     session = Session(engine)
+    results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+        filter(Measurement.date >= start_date).all()
 
-    """Return TMIN, TAVG, TMAX."""
+    session.close()
 
-    # Select statement
-    sel = [func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)]
+    start_date_tobs = []
+    for min, avg, max in results:
+        start_date_tobs_dict = {}
+        start_date_tobs_dict["min_temp"] = min
+        start_date_tobs_dict["avg_temp"] = avg
+        start_date_tobs_dict["max_temp"] = max
+        start_date_tobs.append(start_date_tobs_dict) 
+    return jsonify(start_date_tobs)
 
-    if not end:
-        # calculate TMIN, TAVG, TMAX for dates greater than start
-        result = session.query(*sel).\
-            filter(Measurement.date >= start).all()
-        # Unravel result into a 1D array and convert to a list
-        temps = list(np.ravel(result))
-        return jsonify(temps)
+@app.route("/api/v1.0/<start_date>/<end_date>")
+def Start_end_date(start_date, end_date):
+    session = Session(engine)
+    results = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+        filter(Measurement.date >= start_date).filter(Measurement.date <= end_date).all()
 
-    # calculate TMIN, TAVG, TMAX with start and stop
-    result = session.query(*sel).\
-        filter(Measurement.date >= start).\
-        filter(Measurement.date <= end).all()
-  
-    return jsonify({'result': [dict(row) for row in result]})
+    session.close()
+    start_end_tobs = []
+    for min, avg, max in results:
+        start_end_tobs_dict = {}
+        start_end_tobs_dict["min_temp"] = min
+        start_end_tobs_dict["avg_temp"] = avg
+        start_end_tobs_dict["max_temp"] = max
+        start_end_tobs.append(start_end_tobs_dict) 
+    
+
+    return jsonify(start_end_tobs)
 
 
 if __name__ == '__main__':
     app.run(debug=True)
-
